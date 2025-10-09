@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36518.9
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MiniBrowser", "MiniBrowser\MiniBrowser.csproj", "{6E6BDEA4-A28F-038F-F0C6-EC93C0A3D553}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MiniBrowser.GUI", "MiniBrowser.GUI\MiniBrowser.GUI.csproj", "{73AEADCC-70E7-96A6-765D-3099CDFB004D}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{6E6BDEA4-A28F-038F-F0C6-EC93C0A3D553}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6E6BDEA4-A28F-038F-F0C6-EC93C0A3D553}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6E6BDEA4-A28F-038F-F0C6-EC93C0A3D553}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6E6BDEA4-A28F-038F-F0C6-EC93C0A3D553}.Release|Any CPU.Build.0 = Release|Any CPU
+		{73AEADCC-70E7-96A6-765D-3099CDFB004D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{73AEADCC-70E7-96A6-765D-3099CDFB004D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{73AEADCC-70E7-96A6-765D-3099CDFB004D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{73AEADCC-70E7-96A6-765D-3099CDFB004D}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {32FDF74E-A158-49DD-B859-B4628C397213}
+	EndGlobalSection
+EndGlobal

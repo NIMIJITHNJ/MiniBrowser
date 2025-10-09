@@ -26,3 +26,4 @@ D:\Programming\MiniBrowserSolution\MiniBrowser\obj\Debug\net9.0\refint\MiniBrows
 D:\Programming\MiniBrowserSolution\MiniBrowser\obj\Debug\net9.0\MiniBrowser.pdb
 D:\Programming\MiniBrowserSolution\MiniBrowser\obj\Debug\net9.0\MiniBrowser.genruntimeconfig.cache
 D:\Programming\MiniBrowserSolution\MiniBrowser\obj\Debug\net9.0\ref\MiniBrowser.dll
+D:\Programming\MiniBrowserSolution\MiniBrowser\obj\Debug\net9.0\MiniBrowser.sourcelink.json

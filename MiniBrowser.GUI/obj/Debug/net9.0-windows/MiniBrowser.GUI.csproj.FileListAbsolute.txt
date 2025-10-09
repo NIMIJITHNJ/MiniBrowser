@@ -44,3 +44,4 @@ D:\Programming\MiniBrowserSolution\MiniBrowser.GUI\obj\Debug\net9.0-windows\refi
 D:\Programming\MiniBrowserSolution\MiniBrowser.GUI\obj\Debug\net9.0-windows\MiniBrowser.GUI.pdb
 D:\Programming\MiniBrowserSolution\MiniBrowser.GUI\obj\Debug\net9.0-windows\MiniBrowser.GUI.genruntimeconfig.cache
 D:\Programming\MiniBrowserSolution\MiniBrowser.GUI\obj\Debug\net9.0-windows\ref\MiniBrowser.GUI.dll
+D:\Programming\MiniBrowserSolution\MiniBrowser.GUI\obj\Debug\net9.0-windows\MiniBrowser.GUI.sourcelink.json
