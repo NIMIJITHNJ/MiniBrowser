@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("MiniBrowser.GUI")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+55cbd8147d8b0986daed82b3eb81bcafcdef9bd5")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+44dca3e4d1e068777ed60c651ed501cc29efc124")]
 [assembly: System.Reflection.AssemblyProductAttribute("MiniBrowser.GUI")]
 [assembly: System.Reflection.AssemblyTitleAttribute("MiniBrowser.GUI")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

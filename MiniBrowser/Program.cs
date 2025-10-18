@@ -135,7 +135,7 @@ class Program
 
     static void ListBookmarks()
     {
-        var all = bookmarks.All();
+        var all = bookmarks.Items;
         if (all.Count == 0) { Console.WriteLine("No bookmarks."); return; }
 
         Console.WriteLine("\nBookmarks:");
@@ -160,18 +160,18 @@ class Program
 
     static void OpenBookmarkByIndex(string arg)
     {
-        if (!int.TryParse(arg, out int n) || n <= 0 || n > bookmarks.All().Count)
+        if (!int.TryParse(arg, out int n) || n <= 0 || n > bookmarks.Items.Count)
         {
             Console.WriteLine("Usage: openbm <index>");
             return;
         }
-        var url = bookmarks.All()[n - 1].Url;
+        var url = bookmarks.Items[n - 1].Url;
         _ = NavigateAsync(url); // fire and forget from command handler
     }
 
     static void DeleteBookmarkByIndex(string arg)
     {
-        if (!int.TryParse(arg, out int n) || n <= 0 || n > bookmarks.All().Count)
+        if (!int.TryParse(arg, out int n) || n <= 0 || n > bookmarks.Items.Count)
         {
             Console.WriteLine("Usage: delbm <index>");
             return;

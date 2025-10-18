@@ -6,12 +6,12 @@ namespace MiniBrowser.GUI
     public partial class Form1 : Form
     {
         // Core services
-        private readonly HttpClientService _service = new();
-        private readonly SettingsStore _settings = new();
-        private readonly HistoryManager _history = new();
-        private readonly BookmarkManager _bookmarks = new();
+        private readonly HttpClientService http = new();
+        private readonly SettingsStore settings = new();
+        private readonly HistoryManager history = new();
+        private readonly BookmarkManager bookmarks = new();
 
-        private string _currentFinalUrl = "";
+        private string currentUrl = "";
 
         public Form1()
         {
@@ -24,14 +24,21 @@ namespace MiniBrowser.GUI
             base.OnShown(e);
 
             // Load persisted data
-            _settings.Load();
-            _history.Load();
-            _bookmarks.Load();
+            settings.Load();
+
+            // Load user specific data
+            var user = settings.Data.CurrentUser;
+            settings.LoadForUser(user);
+            history.LoadForUser(user);
+            bookmarks.LoadForUser(user);
+
+            this.Text = $"MiniBrowser 1.0 – User: {user}";
 
             // Wire events
             btnGo.Click += async (_, __) => await NavigateAsync(txtAddress.Text);
-            btnReload.Click += async (_, __) => { if (!string.IsNullOrWhiteSpace(_currentFinalUrl)) await NavigateAsync(_currentFinalUrl); };
-            btnHome.Click += async (_, __) => await NavigateAsync(_settings.Data.HomeUrl);
+            btnReload.Click += async (_, __) => { if (!string.IsNullOrWhiteSpace(currentUrl)) await NavigateAsync(currentUrl); };
+            btnHome.Click += async (_, __) => await NavigateAsync(settings.Data.HomeUrl);
+            btnSetHome.Click += (_, __) => SetHomeInteractive();
             btnBack.Click += async (_, __) => await BackAsync();
             btnForward.Click += async (_, __) => await ForwardAsync();
 
@@ -52,31 +59,85 @@ namespace MiniBrowser.GUI
             btnEditBm.Click += (_, __) => EditBookmarkInteractive();
             btnDelBm.Click += (_, __) => DeleteBookmarkSelected();
 
+            btnRender.Click += async (_, __) =>
+            {
+                var on = btnRender.Checked;
+
+                // flip visibility
+                webView.Visible = on;
+                txtHtml.Visible = !on;
+
+                if (on)
+                {
+                    // init once
+                    try { await webView.EnsureCoreWebView2Async(); }
+                    catch { btnRender.Checked = false; webView.Visible = false; txtHtml.Visible = true; return; }
+
+                    // if we already have a current page, show it rendered
+                    if (!string.IsNullOrWhiteSpace(currentUrl))
+                        webView.Source = new Uri(currentUrl);
+                }
+            };
+
+
+            // Menu events
+            mnuSetHome.Click += (_, __) => SetHomeInteractive();
+            mnuAddBookmark.Click += (_, __) => AddBookmarkInteractive();
+            mnuEditBookmark.Click += (_, __) => EditBookmarkInteractive();
+            mnuDeleteBookmark.Click += (_, __) => DeleteBookmarkSelected();
+            mnuAbout.Click += (_, __) => MessageBox.Show("MiniBrowser 1.0\nCreated by Nimijith", "About");
+            mnuSwitchUser.Click += (_, __) => SwitchUserInteractive();
+
+
+
             // First page
-            txtAddress.Text = _settings.Data.HomeUrl;
-            await NavigateAsync(_settings.Data.HomeUrl);
+            txtAddress.Text = settings.Data.HomeUrl;
+            await NavigateAsync(settings.Data.HomeUrl);
         }
 
         private async Task NavigateAsync(string input)
         {
-            var target = string.IsNullOrWhiteSpace(input) ? _settings.Data.HomeUrl : UrlTools.CleanUrl(input);
+            var target = string.IsNullOrWhiteSpace(input) ? settings.Data.HomeUrl : UrlTools.CleanUrl(input);
             txtAddress.Text = target;
 
-            var result = await _service.GetAsync(target);
+            var result = await http.GetAsync(target);
 
             lblStatus.Text = $"{result.StatusCode} {result.Reason}";
             lblTitle.Text = ExtractTitle(result.Body ?? "");
-            rtbHtml.Text = result.Body ?? "";
+
+            lblTopStatus.Text = $"{(int)result.StatusCode} {result.Reason}";
+            lblTopTitle.Text = $"| {ExtractTitle(result.Body ?? "")}";
+
+            // Show body in the TextBox
+            var body = result.Body ?? string.Empty;
+            body = body.Replace("\r\n", "\n").Replace("\n", "\r\n");
+
+            txtHtml.Text = body;
+            txtHtml.SelectionStart = 0;
+            txtHtml.SelectionLength = 0;
+
+            // If render mode is ON and webview ready, navigate it
+            if (btnRender.Checked && webView?.CoreWebView2 != null)
+            {
+                // Use the final URL if available, else target
+                var go = result.FinalUrl ?? target;
+                if (Uri.TryCreate(go, UriKind.Absolute, out var u))
+                    webView.Source = u;
+            }
+
 
             var links = LinkExtractor.FirstFive(result.Body ?? "", result.FinalUrl ?? target);
+
+            lstLinks.BeginUpdate();
             lstLinks.Items.Clear();
-            foreach (var u in links) lstLinks.Items.Add(u);
+            lstLinks.Items.AddRange(links.ToArray());
+            lstLinks.EndUpdate();
 
             if (result.StatusCode != 0)
             {
-                _currentFinalUrl = result.FinalUrl ?? target;
-                _history.Add(_currentFinalUrl);
-                _history.Save();
+                currentUrl = result.FinalUrl ?? target;
+                history.Add(currentUrl);
+                history.SaveForUser(settings.Data.CurrentUser);
             }
 
             RefreshListsAndButtons();
@@ -84,14 +145,14 @@ namespace MiniBrowser.GUI
 
         private async Task BackAsync()
         {
-            var u = _history.Back();
+            var u = history.Back();
             if (u == null) { MessageBox.Show("No back history."); return; }
             await NavigateAsync(u);
         }
 
         private async Task ForwardAsync()
         {
-            var u = _history.Forward();
+            var u = history.Forward();
             if (u == null) { MessageBox.Show("No forward history."); return; }
             await NavigateAsync(u);
         }
@@ -99,14 +160,28 @@ namespace MiniBrowser.GUI
         private void RefreshListsAndButtons()
         {
             lstHistory.Items.Clear();
-            foreach (var u in _history.Recent(50)) lstHistory.Items.Add(u);
+            foreach (var u in history.Recent(50)) lstHistory.Items.Add(u);
 
             lstBookmarks.Items.Clear();
-            foreach (var b in _bookmarks.All()) lstBookmarks.Items.Add(b);
+            foreach (var b in bookmarks.Items) lstBookmarks.Items.Add(b);
 
-            btnBack.Enabled = _history.CanBack;
-            btnForward.Enabled = _history.CanForward;
-            btnReload.Enabled = !string.IsNullOrWhiteSpace(_currentFinalUrl);
+            btnBack.Enabled = history.CanBack;
+            btnForward.Enabled = history.CanForward;
+            btnReload.Enabled = !string.IsNullOrWhiteSpace(currentUrl);
+        }
+
+        private void SetHomeInteractive()
+        {
+            var current = string.IsNullOrWhiteSpace(currentUrl) ? settings.Data.HomeUrl : currentUrl;
+            var input = Prompt("Set Home URL:", current);
+            // Cancelled
+            if (input == null) return;
+            // Normalises and sets default if blank
+            settings.SetHome(string.IsNullOrWhiteSpace(input) ? current : input);
+            // Save settings per user
+            settings.SaveForUser(settings.Data.CurrentUser);
+            // Reflects new home in the address box
+            txtAddress.Text = settings.Data.HomeUrl;
         }
 
         private static string ExtractTitle(string html)
@@ -121,12 +196,12 @@ namespace MiniBrowser.GUI
 
         private void AddBookmarkInteractive()
         {
-            var current = string.IsNullOrWhiteSpace(_currentFinalUrl) ? _settings.Data.HomeUrl : _currentFinalUrl;
-            var name = Prompt("Bookmark name:", ExtractTitle(rtbHtml.Text)); if (name == null) return;
-            var url = Prompt("Bookmark URL (blank = current):", current); if (url == null) return;
+            var current = string.IsNullOrWhiteSpace(currentUrl) ? settings.Data.HomeUrl : currentUrl;
+            var name = Prompt("Bookmark name:", ExtractTitle(txtHtml.Text)); if (name == null) return;
+            var url = Prompt("Bookmark URL:", current); if (url == null) return;
 
-            _bookmarks.Add(name, UrlTools.CleanUrl(url));
-            _bookmarks.Save();
+            bookmarks.Add(name, UrlTools.CleanUrl(url));
+            bookmarks.SaveForUser(settings.Data.CurrentUser);
             RefreshListsAndButtons();
         }
 
@@ -136,22 +211,22 @@ namespace MiniBrowser.GUI
             var idx = lstBookmarks.SelectedIndex;
             if (lstBookmarks.Items[idx] is not Bookmark b) return;
 
-            var name = Prompt("New name (blank = keep):", b.Name);
-            var url = Prompt("New URL (blank = keep):", b.Url);
+            var name = Prompt("New name:", b.Name);
+            var url = Prompt("New URL:", b.Url);
 
-            var ok = _bookmarks.Edit(idx,
+            var ok = bookmarks.Edit(idx,
                 string.IsNullOrWhiteSpace(name) ? null : name,
                 string.IsNullOrWhiteSpace(url) ? null : UrlTools.CleanUrl(url));
-            if (ok) _bookmarks.Save();
+            if (ok) bookmarks.SaveForUser(settings.Data.CurrentUser);
             RefreshListsAndButtons();
         }
 
         private void DeleteBookmarkSelected()
         {
             if (lstBookmarks.SelectedIndex < 0) { MessageBox.Show("Select a bookmark to delete."); return; }
-            if (_bookmarks.Delete(lstBookmarks.SelectedIndex))
+            if (bookmarks.Delete(lstBookmarks.SelectedIndex))
             {
-                _bookmarks.Save();
+                bookmarks.SaveForUser(settings.Data.CurrentUser);
                 RefreshListsAndButtons();
             }
         }
@@ -167,9 +242,60 @@ namespace MiniBrowser.GUI
             return f.ShowDialog() == DialogResult.OK ? tb.Text : null;
         }
 
-        private void lstBookmarks_SelectedIndexChanged(object sender, EventArgs e)
+        // To make sure everything is saved when the browser closes; already saving after each action. This is a final safety step
+        protected override void OnFormClosing(FormClosingEventArgs e)
         {
+            // Always call base first
+            base.OnFormClosing(e);
+            webView?.Dispose();
+            var user = settings.Data.CurrentUser;
 
+            // Save everything before exit
+            history.SaveForUser(user);
+            bookmarks.SaveForUser(user);
+            settings.Save();
+        }
+
+        private async void SwitchUserInteractive()
+        {
+            var currentUser = settings.Data.CurrentUser;
+
+            // Ask for a name and keep current as default suggestion
+            var input = Prompt("User name (new, existing or leave blank for 'default'):", currentUser);
+            if (input == null) return; // user cancelled
+
+            // If blank, go to default user
+            var targetUser = string.IsNullOrWhiteSpace(input) ? "default" : input;//.Trim().ToLowerInvariant();
+
+            // Check if profile file already exists
+            bool alreadyExists = File.Exists(FileStore.UserSettingsPath(targetUser));
+
+            // Set and save selected user
+            settings.SetUser(targetUser);
+            // To remember last used user globally
+            settings.Save();
+
+            // Load this user's settings and will give default home if first time
+            settings.LoadForUser(targetUser);
+
+            // If new user, save initial empty data files
+            if (!alreadyExists)
+            {
+                settings.SaveForUser(targetUser);
+                MessageBox.Show($"Welcome, {targetUser}! A new profile has been created.", "New User");
+            }
+
+            // Reload per-user data
+            history.LoadForUser(targetUser);
+            bookmarks.LoadForUser(targetUser);
+
+            RefreshListsAndButtons();
+
+            this.Text = $"MiniBrowser 1.0 – User: {targetUser}";
+
+            // Navigate to the user's home page
+            txtAddress.Text = settings.Data.HomeUrl;
+            await NavigateAsync(settings.Data.HomeUrl);
         }
     }
 }

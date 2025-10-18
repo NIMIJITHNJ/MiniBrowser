@@ -1,8 +1,10 @@
 {
   "version": 2,
-  "dgSpecHash": "1Z0GPI3F29s=",
+  "dgSpecHash": "9HshHWDHulM=",
   "success": true,
   "projectFilePath": "D:\\Programming\\MiniBrowserSolution\\MiniBrowser.GUI\\MiniBrowser.GUI.csproj",
-  "expectedPackageFiles": [],
+  "expectedPackageFiles": [
+    "C:\\Users\\91956\\.nuget\\packages\\microsoft.web.webview2\\1.0.3537.50\\microsoft.web.webview2.1.0.3537.50.nupkg.sha512"
+  ],
   "logs": []
 }

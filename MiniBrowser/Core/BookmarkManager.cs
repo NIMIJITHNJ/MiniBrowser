@@ -8,57 +8,113 @@ namespace MiniBrowser.Core
         public string Name { get; set; } = "";
         public string Url  { get; set; } = "";
 
-        public override string ToString()
-        {
-            // Show the bookmark’s display name nicely in lists
-            return string.IsNullOrWhiteSpace(Name) ? Url : $"{Name}";
-        }
+        // Showing a friendly label in lists
+        public override string ToString() => string.IsNullOrWhiteSpace(Name) ? Url : Name;
     }
 
+    // Keeping a simple in-memory list of bookmarks with load/save helpers
     public class BookmarkManager
     {
-        private readonly List<Bookmark> _items = new();
+        private readonly List<Bookmark> items = new();
 
-        public IReadOnlyList<Bookmark> All() => _items;
+        public IReadOnlyList<Bookmark> Items => items;
+        public int Count => items.Count;
 
         public void Load()
         {
             var data = FileStore.Load<List<Bookmark>>(FileStore.BookmarksPath);
-            _items.Clear();
-            if (data != null) _items.AddRange(data.Where(b => !string.IsNullOrWhiteSpace(b.Url)));
+            items.Clear();
+            if (data == null) return;
+
+            foreach (var b in data ?? new List<Bookmark>())
+            {
+                // Skip if bookmark or URL is missing
+                if (b == null || string.IsNullOrWhiteSpace(b.Url))
+                    continue;
+                // Trim and normalise what we load as well
+                var url = UrlTools.CleanUrl(b.Url);
+                var name = (b.Name ?? "").Trim();
+
+                // Avoid duplicates
+                bool exists = items.Any(x => string.Equals(x.Url, url, StringComparison.OrdinalIgnoreCase));
+                if (!exists) items.Add(new Bookmark { Name = string.IsNullOrWhiteSpace(name) ? url : name, Url = url });
+            }
         }
 
         public void Save()
         {
-            FileStore.Save(FileStore.BookmarksPath, _items);
+            FileStore.Save(FileStore.BookmarksPath, items);
         }
 
+        // Load bookmarks for specific user
+        public void LoadForUser(string user)
+        {
+            items.Clear();
+            var data = FileStore.Load<List<Bookmark>>(FileStore.UserBookmarksPath(user));
+            if (data == null) return;
+
+            foreach (var b in data)
+            {
+                if (b == null || string.IsNullOrWhiteSpace(b.Url)) continue;
+                var url = UrlTools.CleanUrl(b.Url);
+                var name = (b.Name ?? "").Trim();
+                if (!items.Any(x => string.Equals(x.Url, url, StringComparison.OrdinalIgnoreCase)))
+                    items.Add(new Bookmark { Name = string.IsNullOrWhiteSpace(name) ? url : name, Url = url });
+            }
+        }
+
+        // Save bookmarks for specific user
+        public void SaveForUser(string user)
+        {
+            FileStore.Save(FileStore.UserBookmarksPath(user), items);
+        }
+
+        // Adding a bookmark if URL not already available
         public void Add(string name, string url)
         {
-            // Avoid duplicate URLs; rename if needed
-            if (_items.Any(b => b.Url == url)) return;
-            _items.Add(new Bookmark { Name = string.IsNullOrWhiteSpace(name) ? url : name.Trim(), Url = url.Trim() });
+            url = UrlTools.CleanUrl(url);
+            name = (name ?? "").Trim();
+
+            // Avoid duplicate URLs and rename if needed
+            if (items.Any(b => string.Equals(b.Url, url, StringComparison.OrdinalIgnoreCase)))
+                return;
+
+            items.Add(new Bookmark
+            {
+                Name = string.IsNullOrWhiteSpace(name) ? url : name,
+                Url = url
+            });
         }
 
+        // Editing the name and/or URL at index, then returns true if updated
         public bool Edit(int index, string? newName = null, string? newUrl = null)
         {
-            if (index < 0 || index >= _items.Count) return false;
-            var b = _items[index];
-            if (!string.IsNullOrWhiteSpace(newName)) b.Name = newName.Trim();
-            if (!string.IsNullOrWhiteSpace(newUrl))
-            {
-                var url = newUrl.Trim();
-                if (_items.Where((x, i) => i != index).Any(x => x.Url == url)) return false; // no duplicates
-                b.Url = url;
-            }
+            if (index < 0 || index >= items.Count) return false;
+            var name = newName?.Trim();
+            var url = string.IsNullOrWhiteSpace(newUrl) ? null : UrlTools.CleanUrl(newUrl!);
+
+            // If URL is changing, keep it unique
+            if (url != null && items.Where((_, i) => i != index).Any(x => string.Equals(x.Url, url, StringComparison.OrdinalIgnoreCase)))
+                return false;
+
+            if (!string.IsNullOrWhiteSpace(name)) items[index].Name = name!;
+            if (url != null) items[index].Url = url;
+
             return true;
         }
 
+        // Deleting bookmark at index, then returns true if removed
         public bool Delete(int index)
         {
-            if (index < 0 || index >= _items.Count) return false;
-            _items.RemoveAt(index);
+            if (index < 0 || index >= items.Count) return false;
+            items.RemoveAt(index);
             return true;
+        }
+
+        // Removing all bookmarks
+        public void Clear()
+        {
+            items.Clear();
         }
     }
 }

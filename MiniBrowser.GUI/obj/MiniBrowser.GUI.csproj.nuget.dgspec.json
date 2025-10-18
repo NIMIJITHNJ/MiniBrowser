@@ -53,6 +53,12 @@
       "frameworks": {
         "net9.0-windows7.0": {
           "targetAlias": "net9.0-windows",
+          "dependencies": {
+            "Microsoft.Web.WebView2": {
+              "target": "Package",
+              "version": "[1.0.3537.50, )"
+            }
+          },
           "imports": [
             "net461",
             "net462",
