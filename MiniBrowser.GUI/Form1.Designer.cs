@@ -38,7 +38,9 @@
             toolStripSeparator1 = new ToolStripSeparator();
             txtAddress = new ToolStripTextBox();
             btnGo = new ToolStripButton();
+            btnRender = new ToolStripButton();
             splitMain = new SplitContainer();
+            webView = new Microsoft.Web.WebView2.WinForms.WebView2();
             txtHtml = new TextBox();
             tabs = new TabControl();
             tabPage1 = new TabPage();
@@ -67,13 +69,16 @@
             mnuAbout = new ToolStripMenuItem();
             userToolStripMenuItem = new ToolStripMenuItem();
             mnuSwitchUser = new ToolStripMenuItem();
-            webView = new Microsoft.Web.WebView2.WinForms.WebView2();
-            btnRender = new ToolStripButton();
+            mnuSettings = new ToolStripMenuItem();
+            mnuStorageMode = new ToolStripMenuItem();
+            mnuModeJson = new ToolStripMenuItem();
+            mnuModeDb = new ToolStripMenuItem();
             toolStrip.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)splitMain).BeginInit();
             splitMain.Panel1.SuspendLayout();
             splitMain.Panel2.SuspendLayout();
             splitMain.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)webView).BeginInit();
             tabs.SuspendLayout();
             tabPage1.SuspendLayout();
             tabPage2.SuspendLayout();
@@ -81,7 +86,6 @@
             statusStrip1.SuspendLayout();
             panelTopHeader.SuspendLayout();
             menuStrip1.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)webView).BeginInit();
             SuspendLayout();
             // 
             // toolStrip
@@ -92,7 +96,7 @@
             toolStrip.Name = "toolStrip";
             toolStrip.Size = new Size(1213, 27);
             toolStrip.TabIndex = 0;
-            toolStrip.Text = "toolStrip1";            
+            toolStrip.Text = "toolStrip1";
             // 
             // btnBack
             // 
@@ -159,6 +163,17 @@
             btnGo.Size = new Size(32, 24);
             btnGo.Text = "Go";
             // 
+            // btnRender
+            // 
+            btnRender.Alignment = ToolStripItemAlignment.Right;
+            btnRender.CheckOnClick = true;
+            btnRender.DisplayStyle = ToolStripItemDisplayStyle.Text;
+            btnRender.Image = (Image)resources.GetObject("btnRender.Image");
+            btnRender.ImageTransparentColor = Color.Magenta;
+            btnRender.Name = "btnRender";
+            btnRender.Size = new Size(60, 24);
+            btnRender.Text = "Render";
+            // 
             // splitMain
             // 
             splitMain.Dock = DockStyle.Fill;
@@ -176,6 +191,19 @@
             splitMain.Size = new Size(1213, 427);
             splitMain.SplitterDistance = 909;
             splitMain.TabIndex = 1;
+            // 
+            // webView
+            // 
+            webView.AllowExternalDrop = true;
+            webView.CreationProperties = null;
+            webView.DefaultBackgroundColor = Color.White;
+            webView.Dock = DockStyle.Fill;
+            webView.Location = new Point(0, 0);
+            webView.Name = "webView";
+            webView.Size = new Size(909, 427);
+            webView.TabIndex = 1;
+            webView.Visible = false;
+            webView.ZoomFactor = 1D;
             // 
             // txtHtml
             // 
@@ -313,7 +341,7 @@
             // 
             lblStatus.Name = "lblStatus";
             lblStatus.Size = new Size(151, 20);
-            lblStatus.Text = "toolStripStatusLabel1";            
+            lblStatus.Text = "toolStripStatusLabel1";
             // 
             // lblTitle
             // 
@@ -356,7 +384,7 @@
             // menuStrip1
             // 
             menuStrip1.ImageScalingSize = new Size(20, 20);
-            menuStrip1.Items.AddRange(new ToolStripItem[] { menuToolStripMenuItem, userToolStripMenuItem });
+            menuStrip1.Items.AddRange(new ToolStripItem[] { menuToolStripMenuItem, userToolStripMenuItem, mnuSettings });
             menuStrip1.Location = new Point(0, 0);
             menuStrip1.Name = "menuStrip1";
             menuStrip1.Size = new Size(1213, 28);
@@ -429,32 +457,35 @@
             // mnuSwitchUser
             // 
             mnuSwitchUser.Name = "mnuSwitchUser";
-            mnuSwitchUser.Size = new Size(224, 26);
+            mnuSwitchUser.Size = new Size(135, 26);
             mnuSwitchUser.Text = "Switch";
             // 
-            // webView
+            // mnuSettings
             // 
-            webView.AllowExternalDrop = true;
-            webView.CreationProperties = null;
-            webView.DefaultBackgroundColor = Color.White;
-            webView.Dock = DockStyle.Fill;
-            webView.Location = new Point(0, 0);
-            webView.Name = "webView";
-            webView.Size = new Size(909, 427);
-            webView.TabIndex = 1;
-            webView.Visible = false;
-            webView.ZoomFactor = 1D;
+            mnuSettings.DropDownItems.AddRange(new ToolStripItem[] { mnuStorageMode });
+            mnuSettings.Name = "mnuSettings";
+            mnuSettings.Size = new Size(76, 24);
+            mnuSettings.Text = "Settings";
             // 
-            // btnRender
+            // mnuStorageMode
             // 
-            btnRender.Alignment = ToolStripItemAlignment.Right;
-            btnRender.CheckOnClick = true;
-            btnRender.DisplayStyle = ToolStripItemDisplayStyle.Text;
-            btnRender.Image = (Image)resources.GetObject("btnRender.Image");
-            btnRender.ImageTransparentColor = Color.Magenta;
-            btnRender.Name = "btnRender";
-            btnRender.Size = new Size(60, 24);
-            btnRender.Text = "Render";
+            mnuStorageMode.DropDownItems.AddRange(new ToolStripItem[] { mnuModeJson, mnuModeDb });
+            mnuStorageMode.Name = "mnuStorageMode";
+            mnuStorageMode.Size = new Size(224, 26);
+            mnuStorageMode.Text = "Storage Mode";
+            // 
+            // mnuModeJson
+            // 
+            mnuModeJson.Name = "mnuModeJson";
+            mnuModeJson.Size = new Size(224, 26);
+            mnuModeJson.Text = "JSON";
+            mnuModeJson.Click += jSONToolStripMenuItem_Click;
+            // 
+            // mnuModeDb
+            // 
+            mnuModeDb.Name = "mnuModeDb";
+            mnuModeDb.Size = new Size(224, 26);
+            mnuModeDb.Text = "DB";
             // 
             // Form1
             // 
@@ -475,6 +506,7 @@
             splitMain.Panel2.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)splitMain).EndInit();
             splitMain.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)webView).EndInit();
             tabs.ResumeLayout(false);
             tabPage1.ResumeLayout(false);
             tabPage2.ResumeLayout(false);
@@ -485,7 +517,6 @@
             panelTopHeader.PerformLayout();
             menuStrip1.ResumeLayout(false);
             menuStrip1.PerformLayout();
-            ((System.ComponentModel.ISupportInitialize)webView).EndInit();
             ResumeLayout(false);
             PerformLayout();
         }
@@ -532,5 +563,9 @@
         private ToolStripMenuItem mnuSwitchUser;
         private Microsoft.Web.WebView2.WinForms.WebView2 webView;
         private ToolStripButton btnRender;
+        private ToolStripMenuItem mnuSettings;
+        private ToolStripMenuItem mnuStorageMode;
+        private ToolStripMenuItem mnuModeJson;
+        private ToolStripMenuItem mnuModeDb;
     }
 }

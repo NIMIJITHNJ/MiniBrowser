@@ -5,23 +5,35 @@ using MiniBrowser.Core;
 class Program
 {
     // Managers shared across the app
-    private static readonly HttpClientService service = new();
+    private static readonly HttpClientService http = new();
     private static readonly SettingsStore settings = new();
     private static readonly HistoryManager history = new();
     private static readonly BookmarkManager bookmarks = new();
 
-    private static string currentFinalUrl = "";   // last successfully loaded page
+    private static string currentUrl = "";   // Last successfully loaded page
 
     static async Task Main(string[] args)
     {
         // Load persisted data
         settings.Load();
-        history.Load();
-        bookmarks.Load();
+
+        // Ensure DB schema if using DB mode
+        if (string.Equals(settings.Data.StorageMode, "Db", StringComparison.OrdinalIgnoreCase))
+            MiniBrowserDb.EnsureSchema();
+
+        // Set storage modes
+        history.StorageMode = settings.Data.StorageMode;
+        bookmarks.StorageMode = settings.Data.StorageMode;
+
+        // Load user-specific data
+        var user = settings.Data.CurrentUser;
+        settings.LoadForUser(user);
+        history.LoadForUser(user);
+        bookmarks.LoadForUser(user);
 
         Console.WriteLine("MiniBrowser (console)");
-        Console.WriteLine("Commands: blank=home | r=reload | b=back | f=forward | h=history |");
-        Console.WriteLine("          bm=list bookmarks | addbm | openbm <n> | delbm <n> | sethome <url> | q=quit");
+        Console.WriteLine("Commands: blank - home | r - reload | b - back | f - forward | h - history |");
+        Console.WriteLine("          bm - list bookmarks | addbm | openbm <n> | delbm <n> | sethome <url> | q - quit");
 
         while (true)
         {
@@ -35,15 +47,15 @@ class Program
 
             switch (cmd)
             {
-                case "": // blank -> home
+                case "": // Blank leads to home
                     await NavigateAsync(settings.Data.HomeUrl);
                     break;
 
                 case "r":
-                    if (string.IsNullOrWhiteSpace(currentFinalUrl))
+                    if (string.IsNullOrWhiteSpace(currentUrl))
                         Console.WriteLine("Nothing to reload yet.");
                     else
-                        await NavigateAsync(currentFinalUrl);
+                        await NavigateAsync(currentUrl);
                     break;
 
                 case "b":
@@ -79,35 +91,35 @@ class Program
                     break;
 
                 default:
-                    // treat as URL
+                    // Treat as URL
                     await NavigateAsync(line);
                     break;
             }
         }
     }
 
-    // -------- Navigation helpers --------
+    // Navigation helpers
 
     static async Task NavigateAsync(string input)
     {
         var target = ResolveInput(input);
-        var result = await service.GetAsync(target);
+        var result = await http.GetAsync(target);
 
         Console.WriteLine($"\nStatus: {result.StatusCode} {result.Reason}");
         Console.WriteLine($"Final URL: {result.FinalUrl}");
         Console.WriteLine($"Title: {ExtractTitle(result.Body)}");
-        Console.WriteLine("\n=== HTML preview (first 500 chars) ===");
+        Console.WriteLine("\n ***** HTML preview (first 500 chars) *****");
         Console.WriteLine(result.Body?.Substring(0, Math.Min(500, result.Body.Length)));
         Console.WriteLine();
 
         if (result.StatusCode != 0)
         {
-            currentFinalUrl = result.FinalUrl;
-            history.Add(result.FinalUrl);
-            history.Save();
+            currentUrl = result.FinalUrl ?? target; ;
+            history.Add(currentUrl);
+            history.SaveForUser(settings.Data.CurrentUser);
         }
 
-        var links = LinkExtractor.FirstFive(result.Body ?? "", result.FinalUrl ?? "");
+        var links = LinkExtractor.FirstFive(result.Body ?? "", result.FinalUrl ?? target);
 
         if (links.Count > 0)
         {
@@ -117,6 +129,7 @@ class Program
         }
     }
 
+    // Back navigation
     static async Task BackAsync()
     {
         var url = history.Back();
@@ -124,6 +137,7 @@ class Program
         await NavigateAsync(url);
     }
 
+    // Forward navigation
     static async Task ForwardAsync()
     {
         var url = history.Forward();
@@ -131,8 +145,7 @@ class Program
         await NavigateAsync(url);
     }
 
-    // -------- Bookmarks --------
-
+    // Bookmark helpers
     static void ListBookmarks()
     {
         var all = bookmarks.Items;
@@ -143,9 +156,10 @@ class Program
             Console.WriteLine($"{i + 1}. {all[i].Name} → {all[i].Url}");
     }
 
+    // To add bookmark interactively
     static void AddBookmarkInteractive()
     {
-        var currentFallback = string.IsNullOrWhiteSpace(currentFinalUrl) ? settings.Data.HomeUrl : currentFinalUrl;
+        var currentFallback = string.IsNullOrWhiteSpace(currentUrl) ? settings.Data.HomeUrl : currentUrl;
 
         Console.Write("Name: ");
         var name = Console.ReadLine() ?? "";
@@ -154,35 +168,40 @@ class Program
 
         var url = string.IsNullOrWhiteSpace(urlIn) ? currentFallback : UrlTools.CleanUrl(urlIn);
         bookmarks.Add(name, url);
-        bookmarks.Save();
-        Console.WriteLine("Bookmark saved.");
+        bookmarks.SaveForUser(settings.Data.CurrentUser);
+        Console.WriteLine("Bookmark saved");
     }
 
+    // To open bookmark by index
     static void OpenBookmarkByIndex(string arg)
     {
-        if (!int.TryParse(arg, out int n) || n <= 0 || n > bookmarks.Items.Count)
+        if (!int.TryParse(arg, out int n) || n <= 0 || n > bookmarks.Count)
         {
             Console.WriteLine("Usage: openbm <index>");
             return;
         }
         var url = bookmarks.Items[n - 1].Url;
-        _ = NavigateAsync(url); // fire and forget from command handler
+        _ = NavigateAsync(url); 
     }
 
+    // To delete bookmark by index
     static void DeleteBookmarkByIndex(string arg)
     {
-        if (!int.TryParse(arg, out int n) || n <= 0 || n > bookmarks.Items.Count)
+        if (!int.TryParse(arg, out int n) || n <= 0 || n > bookmarks.Count)
         {
             Console.WriteLine("Usage: delbm <index>");
             return;
         }
         var ok = bookmarks.Delete(n - 1);
-        if (ok) { bookmarks.Save(); Console.WriteLine("Deleted."); }
+        if (ok) 
+        { 
+            bookmarks.SaveForUser(settings.Data.CurrentUser); 
+            Console.WriteLine("Deleted."); 
+        }
         else Console.WriteLine("Delete failed.");
     }
 
-    // -------- Settings --------
-
+    // Set home URL
     static void SetHome(string raw)
     {
         if (string.IsNullOrWhiteSpace(raw))
@@ -192,15 +211,15 @@ class Program
         }
         var url = UrlTools.CleanUrl(raw);
         settings.Data.HomeUrl = url;
-        settings.Save();
+        settings.SaveForUser(settings.Data.CurrentUser);
         Console.WriteLine($"Home set to: {url}");
     }
 
-    // -------- Utilities --------
-
+    // Resolve input URL or return home
     static string ResolveInput(string input)
         => string.IsNullOrWhiteSpace(input) ? settings.Data.HomeUrl : UrlTools.CleanUrl(input);
 
+    // Show recent history
     static void ShowRecent(HistoryManager h)
     {
         var list = h.Recent(5);
@@ -211,6 +230,7 @@ class Program
             Console.WriteLine($"{n}. {list[i]}");
     }
 
+    // Simple HTML title extractor
     static string ExtractTitle(string html)
     {
         if (string.IsNullOrEmpty(html)) return "(no title)";

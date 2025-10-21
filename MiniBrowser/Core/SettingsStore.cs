@@ -61,29 +61,60 @@ namespace MiniBrowser.Core
         // Load settings for specific user
         public void LoadForUser(string user)
         {
-            // Keep CurrentUser consistent
-            SetUser(user);
+            var u = CleanUserName(user);
 
-            var loaded = FileStore.Load<SettingsData>(FileStore.UserSettingsPath(user));
-            if (loaded == null)
+            // If using DB, load from there
+            if (Data.StorageMode.Equals("Db", StringComparison.OrdinalIgnoreCase))
             {
-                // First time default home for this user
-                SetHome(UrlTools.DefaultHome);
+                using var db = new MiniBrowserDb();
+                var row = db.Settings.FirstOrDefault(s => s.UserName == u);
+                if (row == null)
+                {
+                    SetHome(UrlTools.DefaultHome);
+                    return;
+                }
+                SetHome(row.HomeUrl);
                 return;
             }
 
-            // Normalise and keep user
+            // JSON path and file of the particular user
+            var loaded = FileStore.Load<SettingsData>(FileStore.UserSettingsPath(u));
+            if (loaded == null) { SetHome(UrlTools.DefaultHome); return; }
             SetHome(loaded.HomeUrl);
-            SetUser(user);
-            SetStorageMode(loaded.StorageMode);
         }
 
         public void SaveForUser(string user)
         {
-            // Ensure Data.CurrentUser is correct and URL is clean
-            SetUser(user);
-            SetHome(Data.HomeUrl);
-            FileStore.Save(FileStore.UserSettingsPath(user), Data);
+            var u = CleanUserName(user);
+
+            // If using DB, save to there
+            if (Data.StorageMode.Equals("Db", StringComparison.OrdinalIgnoreCase))
+            {
+                using var db = new MiniBrowserDb();
+                var row = db.Settings.FirstOrDefault(s => s.UserName == u);
+                if (row == null)
+                {
+                    db.Settings.Add(new DbSetting { UserName = u, HomeUrl = Data.HomeUrl });
+                }
+                else
+                {
+                    row.HomeUrl = Data.HomeUrl;
+                    db.Settings.Update(row);
+                }
+                db.SaveChanges();
+                return;
+            }
+
+            // Save to JSON file for this user
+            var dto = new SettingsData { HomeUrl = Data.HomeUrl, CurrentUser = u, StorageMode = Data.StorageMode };
+            FileStore.Save(FileStore.UserSettingsPath(u), dto);
+        }
+
+        // Keep usernames consistent
+        public static string CleanUserName(string user)
+        {
+            var u = (user ?? "").Trim().ToLowerInvariant();
+            return string.IsNullOrWhiteSpace(u) ? "default" : u;
         }
     }
 }

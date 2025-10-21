@@ -23,12 +23,16 @@ namespace MiniBrowser.GUI
         {
             base.OnShown(e);
 
-            // Load persisted data
+            // Ensure DB schema if using DB mode
             settings.Load();
+            if (string.Equals(settings.Data.StorageMode, "Db", StringComparison.OrdinalIgnoreCase))
+                MiniBrowserDb.EnsureSchema();
 
             // Load user specific data
             var user = settings.Data.CurrentUser;
             settings.LoadForUser(user);
+            bookmarks.StorageMode = settings.Data.StorageMode;
+            history.StorageMode = settings.Data.StorageMode;
             history.LoadForUser(user);
             bookmarks.LoadForUser(user);
 
@@ -88,6 +92,18 @@ namespace MiniBrowser.GUI
             mnuAbout.Click += (_, __) => MessageBox.Show("MiniBrowser 1.0\nCreated by Nimijith", "About");
             mnuSwitchUser.Click += (_, __) => SwitchUserInteractive();
 
+            mnuModeJson.Checked = settings.Data.StorageMode.Equals("Json", StringComparison.OrdinalIgnoreCase);
+            mnuModeDb.Checked = !mnuModeJson.Checked;
+
+            mnuModeJson.Click += (_, __) => SwitchStorageMode("Json");
+            mnuModeDb.Click += (_, __) => SwitchStorageMode("Db");
+
+            // If render mode is ON, ensure WebView is initialized
+            if (btnRender.Checked)
+            {
+                try { await webView.EnsureCoreWebView2Async(); }
+                catch { btnRender.Checked = false; webView.Visible = false; txtHtml.Visible = true; }
+            }
 
 
             // First page
@@ -264,8 +280,11 @@ namespace MiniBrowser.GUI
             var input = Prompt("User name (new, existing or leave blank for 'default'):", currentUser);
             if (input == null) return; // user cancelled
 
-            // If blank, go to default user
-            var targetUser = string.IsNullOrWhiteSpace(input) ? "default" : input;//.Trim().ToLowerInvariant();
+            // Keep original user name for display
+            var displayUser = string.IsNullOrWhiteSpace(input) ? "default" : input.Trim();
+
+            // Cleaned version of user name internally for storage
+            var targetUser = CleanUserName(displayUser);
 
             // Check if profile file already exists
             bool alreadyExists = File.Exists(FileStore.UserSettingsPath(targetUser));
@@ -277,12 +296,14 @@ namespace MiniBrowser.GUI
 
             // Load this user's settings and will give default home if first time
             settings.LoadForUser(targetUser);
+            bookmarks.StorageMode = settings.Data.StorageMode;
+            history.StorageMode = settings.Data.StorageMode;
 
             // If new user, save initial empty data files
             if (!alreadyExists)
             {
                 settings.SaveForUser(targetUser);
-                MessageBox.Show($"Welcome, {targetUser}! A new profile has been created.", "New User");
+                MessageBox.Show($"Welcome, {displayUser}! A new profile has been created.", "New User");
             }
 
             // Reload per-user data
@@ -291,11 +312,56 @@ namespace MiniBrowser.GUI
 
             RefreshListsAndButtons();
 
-            this.Text = $"MiniBrowser 1.0 – User: {targetUser}";
+            this.Text = $"MiniBrowser 1.0 – User: {displayUser}";
 
             // Navigate to the user's home page
             txtAddress.Text = settings.Data.HomeUrl;
             await NavigateAsync(settings.Data.HomeUrl);
+        }
+
+        // Switch between JSON and DB storage modes
+        private void SwitchStorageMode(string mode)
+        {
+            // No change
+            if (string.Equals(settings.Data.StorageMode, mode, StringComparison.OrdinalIgnoreCase))
+                return;
+
+            // Set and save new mode
+            settings.SetStorageMode(mode);
+            settings.Save();
+
+            // Update menu checks
+            bool useJson = mode.Equals("Json", StringComparison.OrdinalIgnoreCase);
+            mnuModeJson.Checked = useJson;
+            mnuModeDb.Checked = !useJson;
+
+            // Ensure DB schema if switching to DB
+            if (!useJson)
+                MiniBrowserDb.EnsureSchema();
+
+            // Update storage mode in managers
+            bookmarks.StorageMode = settings.Data.StorageMode;
+            history.StorageMode = settings.Data.StorageMode;
+
+            // Reload current user's data
+            var user = settings.Data.CurrentUser;
+            history.LoadForUser(user);
+            bookmarks.LoadForUser(user);
+            RefreshListsAndButtons();
+
+            MessageBox.Show($"Storage mode switched to {mode}.", "Storage");
+        }
+
+        // Keep usernames consistent
+        public static string CleanUserName(string user)
+        {
+            var u = (user ?? "").Trim().ToLowerInvariant();
+            return string.IsNullOrWhiteSpace(u) ? "default" : u;
+        }
+
+        private void jSONToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+
         }
     }
 }
